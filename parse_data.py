@@ -1,12 +1,13 @@
 import pandas as pd 
 import numpy as np
-# import librosa 
 import matplotlib.pyplot as plt
 from scipy.io import wavfile
 from scipy import fftpack
 from scipy import signal
 import os
 
+# import soundfile as sf
+#import pyAudioAnalysis
 #module to output the sound 
 from playsound import playsound
 
@@ -33,7 +34,80 @@ sample_dir = os.getcwd()
 all_samples = os.listdir()
 
 # all_samples.sort()
-# print((all_samples[2]))
+print((all_samples[2]))
+
+
+class Feature_Extraction:
+	"""
+	this class extracts the features from the input dataset ,  
+	A list of probable features are:
+	1) Compactness.
+	2) Magnitude spectrum.
+	3) Mel-frequency cepstral coefficients.
+	4) Pitch.
+	5) Power Spectrum.
+	6) RMS.
+	7) Rhythm.
+	8) Spectral Centroid.
+	9) Spectral Flux.
+	10) Spectral RollOff Point.
+	11) Spectral Variability.
+	12) Zero Crossings
+	"""
+
+	def __init__(self,sample,mutiple=False):
+		self.sample = sample 
+		self.mutiple = False
+
+	def ZCR(self):
+		ZCR = []
+		for i in range(len(self.sample)):
+			#for zero crossing it is necessary that the data points are centered around a mean values 
+			# self.sample[i] = self.sample[i] - self.sample[i].mean()
+			pos = self.sample[i]>0
+			npos = ~pos
+			ZCR.append(len(((pos[:-1] & npos[1:]) | (npos[:-1] & pos[1:])).nonzero()[0]))
+		return ZCR
+
+		#the for loop for zcr calculation takes about 342 milliseconds more 
+		#for a single input value  to compute than the stackflow one
+		# ZCR = 0 
+		# for i in range(1,len(sample)):
+		# 	prev_sign = np.signbit(sample[i-1])
+		# 	cur_sign = np.signbit(sample[i])
+		# 	if( (cur_sign != prev_sign)  ):
+		# 		ZCR+=1
+
+
+	def spect(self):
+		freq =[]
+		time = []
+		power = []
+
+		for i in range(len(self.sample)):
+			f, t, p = signal.spectrogram(self.sample[i],fs=8000,window='blackman')  #works good
+			freq.append(f)
+			time.append(t)
+			power.append(p)
+		return np.array(freq),np.array(time), np.array(power)
+
+	def plot_spectogram(self):
+		freq , t , power = self.spect()
+		plt.figure(1)
+		plt.subplot(311)
+		plt.plot(self.sample)
+
+		plt.subplot(312)
+		plt.specgram(self.sample,Fs=8000)
+		plt.colorbar()
+
+		plt.subplot(313)
+		plt.pcolormesh(t,freq,power)
+		pass
+
+	def print_ZCR(self):
+		pass
+		# print(features.ZCR())
 
 
 
@@ -70,26 +144,29 @@ def import_data(all_samples):
 	print("\nDataset Loaded\n")
 	return np.array(samples),sample_rate
 
-def extract_features(sample):
-	"""
-	this function extracts the features from the input dataset , 
-	only input one sample at a time
-	only one sample/input is taken to minimize the vast numbers of output to a few numpy n dimensional array 
-	1) Compactness.
-	2) Magnitude spectrum.
-	3) Mel-frequency cepstral coefficients.
-	4) Pitch.
-	5) Power Spectrum.
-	6) RMS.
-	7) Rhythm.
-	8) Spectral Centroid.
-	9) Spectral Flux.
-	10) Spectral RollOff Point.
-	11) Spectral Variability.
-	12) Zero Crossings
-	"""
+def normalize_data(samples):
+	print("Normalizing Data ")
+	for i in range(len(samples)):
+		samples[i] = ( samples[i] - samples[i].mean() ) / samples[i].std()
+		if i%16==0:
+			print("-",end="")
+	print("\nData Normalized\n")
+	return samples
 
-	pass
+def extract_features(sample):
+	# sample = np.array(sample)
+	
+	
+	sample = sample - sample.mean()
+	# sample = sample[sample!=0]
+	#code from stackflow
+	# pos = sample>0
+	# npos = ~pos
+	# return len(((pos[:-1] & npos[1:]) | (npos[:-1] & pos[1:])).nonzero()[0])
+	# return ZCR
+	return signal.spectrogram(sample,fs=8000,window='blackman')  #works good
+
+	# pass
 
 def visualize_data(sample,mutiple="False"):
 	"""
@@ -107,6 +184,7 @@ def visualize_data(sample,mutiple="False"):
 def zero_padding(samples):
 	"""
 	this function pads the samples to make every sample the equal length
+	it cuts off excess values and addes zeros to the insufficient ones
 	making the length a power of 2 makes the calculation of fft faster and convinient
 	"""
 	for i in range(len(samples)):
@@ -123,48 +201,77 @@ def zero_padding(samples):
 			samples[i] = samples[i][pad0:-pad1]
 	return samples
 
-# def make_dataframe():
-# 	pass
+def make_dataframe(all_samples):
+	"""
+	
+	"""
+	samples,sample_rate = import_data(all_samples)
+	labels, speakers = extract_labels(all_samples)
+	# samples = zero_padding(samples)
+	samples = zero_padding(samples)
+
+	#putting the parsed data into a dataframe
+	data = np.transpose(np.array([samples ,sample_rate,labels,speakers]))
+	data = pd.DataFrame(data,
+		columns=['Audio_Data','Sample_Rate','Labels', 'Speakers'])
+	
+	#exploring the formed data frame
+	# print(data.head(10))
+
+	#saving the dataframe into a file (excel file, html table file )
+	# data.to_excel(main_dir+"/parsed_data.xlsx")
+	# data.to_html(main_dir+"/parsed_data.html")
+
+	return data
 
 samples,sample_rate = import_data(all_samples)
 labels, speakers = extract_labels(all_samples)
-print(len(samples[1000]),len(sample_rate),len(labels),len(speakers))
 
-plt.subplot(311)
-plt.plot(samples[1000])
+# length = []
+# for i in range(len(samples)):
+# 	length.append(len(samples[i]))
+
+# print(((np.array(length)).argmax()))
+# print(all_samples[1469])
 
 # samples = zero_padding(samples)
 samples = zero_padding(samples)
-print(len(samples[1000]))
+samples = normalize_data(samples)
 
 
 #putting the parsed data into a dataframe
 data = np.transpose(np.array([samples ,sample_rate,labels,speakers]))
 data = pd.DataFrame(data,
-	columns=['Audio_Data','Sample_Rate','Labels', 'Speakers'])
+		columns=['Audio_Data','Sample_Rate','Labels', 'Speakers'])
+	
 
-#exploring the formed data frame
-# print(data.head(10))
+test_samples = data.iloc[:,0]
 
-#saving the dataframe into a file (excel file, html table file )
-# data.to_excel(main_dir+"/parsed_data.xlsx")
-# data.to_html(main_dir+"/parsed_data.html")
+# print(data.iloc[100,2:4])
 
-# window = signal.blackman(len(samples[0]))
-# p, p_gram, gram = signal.spectrogram(samples[0],fs=8000)
-# # s_gram = 
-# rfft = fftpack.fft((samples[0]*window),n=4000)
-# irfft = fftpack.ifft(rfft)
+# test_samples = normalize_data(test_samples)
+
+freq , t , power = extract_features(test_samples[100])
+
+print(len(freq),len(t),len(power))
+
+# plt.figure(1)
 # plt.subplot(311)
-# plt.plot(samples[0])
+# plt.plot(test_samples[100])
 
 # plt.subplot(312)
-# plt.plot(samples[0])
+# plt.specgram(test_samples[100],Fs=8000)
+# plt.colorbar()
 
-# # plt.plot(abs(rfft[0:int (len(rfft)/2)]))
-# plt.specgram(samples[0],Fs=8000)
 # plt.subplot(313)
-# # plt.semilogy(p,p_gram)
-# # plt.ylim([1e-7, 1e2])
-# plt.pcolormesh(p_gram,p,gram)
+# plt.pcolormesh(t,freq,power)
+
+
+features = Feature_Extraction(test_samples)
+
+freq , t , power = features.spect()
+print(freq.shape,t.shape,power.shape)
+
+
+
 plt.show()
