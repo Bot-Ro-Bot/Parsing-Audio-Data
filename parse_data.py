@@ -67,7 +67,7 @@ class Feature_Extraction:
 			pos = self.sample[i]>0
 			npos = ~pos
 			ZCR.append(len(((pos[:-1] & npos[1:]) | (npos[:-1] & pos[1:])).nonzero()[0]))
-		return ZCR
+		return np.array(ZCR)
 
 		#the for loop for zcr calculation takes about 342 milliseconds more 
 		#for a single input value  to compute than the stackflow one
@@ -86,19 +86,21 @@ class Feature_Extraction:
 
 		for i in range(len(self.sample)):
 			f, t, p = signal.spectrogram(self.sample[i],fs=8000,window='blackman')  #works good
-			freq.append(f)
+			freq.append(list(f))
 			time.append(t)
 			power.append(p)
 		return np.array(freq),np.array(time), np.array(power)
 
 	def plot_spectogram(self):
-		freq , t , power = self.spect()
+		# select a random file from the dataset
+		random = np.random.randint(0,2000)
+		freq , t , power = signal.spectrogram(self.sample[random],fs=8000,window='blackman')
 		plt.figure(1)
 		plt.subplot(311)
-		plt.plot(self.sample)
+		plt.plot(self.sample[random])
 
 		plt.subplot(312)
-		plt.specgram(self.sample,Fs=8000)
+		plt.specgram(self.sample[random],Fs=8000)
 		plt.colorbar()
 
 		plt.subplot(313)
@@ -106,8 +108,7 @@ class Feature_Extraction:
 		pass
 
 	def print_ZCR(self):
-		pass
-		# print(features.ZCR())
+		print(self.ZCR())
 
 
 
@@ -198,6 +199,7 @@ def zero_padding(samples):
 		elif(length < 4096):
 			samples[i] = np.pad(samples[i],(pad0,pad1))
 		else:
+			#chopping the signals with  higher number of datas
 			samples[i] = samples[i][pad0:-pad1]
 	return samples
 
@@ -209,6 +211,7 @@ def make_dataframe(all_samples):
 	labels, speakers = extract_labels(all_samples)
 	# samples = zero_padding(samples)
 	samples = zero_padding(samples)
+
 
 	#putting the parsed data into a dataframe
 	data = np.transpose(np.array([samples ,sample_rate,labels,speakers]))
@@ -224,20 +227,18 @@ def make_dataframe(all_samples):
 
 	return data
 
+def train_test_split(samples):
+	pass
+
+
 samples,sample_rate = import_data(all_samples)
 labels, speakers = extract_labels(all_samples)
-
-# length = []
-# for i in range(len(samples)):
-# 	length.append(len(samples[i]))
-
-# print(((np.array(length)).argmax()))
-# print(all_samples[1469])
 
 # samples = zero_padding(samples)
 samples = zero_padding(samples)
 samples = normalize_data(samples)
 
+labels = labels.astype("uint8")
 
 #putting the parsed data into a dataframe
 data = np.transpose(np.array([samples ,sample_rate,labels,speakers]))
@@ -245,33 +246,28 @@ data = pd.DataFrame(data,
 		columns=['Audio_Data','Sample_Rate','Labels', 'Speakers'])
 	
 
-test_samples = data.iloc[:,0]
-
-# print(data.iloc[100,2:4])
-
-# test_samples = normalize_data(test_samples)
-
-freq , t , power = extract_features(test_samples[100])
-
-print(len(freq),len(t),len(power))
-
-# plt.figure(1)
-# plt.subplot(311)
-# plt.plot(test_samples[100])
-
-# plt.subplot(312)
-# plt.specgram(test_samples[100],Fs=8000)
-# plt.colorbar()
-
-# plt.subplot(313)
-# plt.pcolormesh(t,freq,power)
-
-
-features = Feature_Extraction(test_samples)
+features = Feature_Extraction(samples)
 
 freq , t , power = features.spect()
-print(freq.shape,t.shape,power.shape)
+ZCR = features.ZCR()
+print(freq[0].shape,t.shape,power.shape,ZCR.shape)
+features.plot_spectogram()
 
+print(type(freq[0]),type(t),type(power))
 
+# print(freq[0:2])
 
+# data["frequency"] = freq
+# data.insert(2,"frequency",freq)
+
+features_ZCR = pd.DataFrame(ZCR,
+	columns= ["ZCR"])
+
+data = pd.concat([data,features_ZCR],axis=1)	
+# data.to_excel(main_dir+"/parsed_zcr.xlsx")	
+# data.to_html(main_dir+"/parsed_zcr.html")
+
+print(data.info())
+plt.figure(2)
+plt.hist(data["ZCR"])
 plt.show()
