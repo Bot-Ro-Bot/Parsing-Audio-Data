@@ -48,7 +48,7 @@ def extract_labels(all_samples):
 	for i in range(len(all_samples)):
 		temp = all_samples[i]
 		temp = (temp[0:-3].split("_"))
-		labels.append(temp[0])
+		labels.append(float(temp[0]))
 		speakers.append(temp[1])
 		if i%16==0:
 			print("-",end="")
@@ -119,7 +119,7 @@ train_data , train_label, test_data ,test_label = train_test_split(samples, labe
 # print(train_data.shape, train_label.shape, test_data.shape, test_label.shape)
 
 # print(train_data.flatten())
-clf = svm.SVR()
+clf = svm.SVC()
 clf.fit(train_data,train_label)
 # pred = (clf.predict([test_data[10]]))
 pred = (clf.predict(test_data))
@@ -130,6 +130,6 @@ for i in range(len(pred)):
 	print(int(pred[i]),test_label[i])
 	if ( int(pred[i]) == int(test_label[i]) ):
 		points+=1
-print("Accuracy : ", ( (points/ 500) * 100))
+print("Accuracy : ", ( (points/ len(pred)) * 100))
 
 # print("Value should be :", test_label[10])

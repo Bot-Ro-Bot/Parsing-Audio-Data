@@ -113,6 +113,12 @@ def ZCR(sample):
 def RMS(sample):
 	return np.sqrt(np.mean(np.power(sample,2)))
 
+def spectral_centroid(x, samplerate=8000):
+    magnitudes = np.abs(np.fft.rfft(x)) # magnitudes of positive frequencies
+    length = len(x)
+    freqs = np.abs(np.fft.fftfreq(length, 1.0/samplerate)[:length//2+1]) # positive frequencies
+    return np.sum(magnitudes*freqs) / np.sum(magnitudes)
+
 def temporal_features(sample,frames):
 	"""
 	temporal features are the features in time domain
@@ -124,7 +130,7 @@ def temporal_features(sample,frames):
 	features = []
 	for i in range(frames):
 		temp = sample[int(frames*i):int(frames*(i+1))]
-		feat = [np.mean(temp), np.std(temp), np.min(temp),np.max(temp),RMS(temp)]
+		feat = [np.mean(temp), np.std(temp), np.min(temp),np.max(temp),RMS(temp),ZCR(temp)]
 		features.append(feat)
 	return np.nan_to_num(np.hstack(features))
 
@@ -178,7 +184,7 @@ features = extract_features(samples,frames)
 print((features.shape))
 
 
-train_data , test_data , train_label, test_label = train_test_split(features, labels,test_size=0.10)
+train_data , test_data , train_label, test_label = train_test_split(features, labels,test_size=0.15)
 # train_data , train_label, test_data ,test_label = train_test_split(features, labels)
 print(train_data.shape, train_label.shape, test_data.shape, test_label.shape)
 
@@ -191,12 +197,16 @@ print(len(test_data[50]))
 # print(type(test_label[0]))
 
 
+class_names = ['zero','one' , 'two' ,'three' ,'four' ,'five' ,'six' ,'seven' ,'eight' ,'nine' ]
+
 model = keras.Sequential()
-model.add(keras.layers.Dense(288 , activation= 'relu', input_shape=(train_data.shape[1],)))
+model.add(keras.layers.Dense(len(train_data[0]) , activation= 'relu', input_shape=(train_data.shape[1],)))
 # model.add(keras.layers.Flatten()),
-model.add(keras.layers.Dense(100 , activation = 'relu'))
-model.add(keras.layers.Dense(100 , activation = 'relu'))
-model.add(keras.layers.Dense(64 , activation = 'relu'))
+model.add(keras.layers.Dropout(0.01))
+model.add(keras.layers.Dense(144 , activation = 'relu'))
+model.add(keras.layers.Dropout(0.05))
+model.add(keras.layers.Dense(72 , activation = 'relu'))
+# model.add(keras.layers.Dense(36, activation = 'relu'))
 model.add(keras.layers.Dense(10, activation='softmax'))
 
 model.compile(optimizer='adam',
